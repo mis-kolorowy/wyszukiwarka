@@ -89,7 +89,7 @@ const anagramIndex = new Map();
 const lengthIndex = new Map();
 
 function normalize(word){
-    return word.toLowerCase();
+    return word.trim().toLowerCase();
 }
 
 function anagramKey(word){
@@ -99,12 +99,13 @@ function anagramKey(word){
 }
 
 async function loadDictionary(){
+    const response = await fetch("slowa.txt");
+    
+    if (!response.ok) {
+        throw new Error(`Nie udało się załadować pliku (Status: ${response.status})`);
+    }
 
-    const response =
-        await fetch("slowa.txt");
-
-    const text =
-        await response.text();
+    const text = await response.text();
 
     return text
         .split(/\r?\n/)
@@ -113,29 +114,25 @@ async function loadDictionary(){
 }
 
 function buildIndexes(){
-
     for(const word of words){
-
-        const len = word.length;
+        const normalizedWord = word.toLowerCase();
+        const len = normalizedWord.length;
 
         if(!lengthIndex.has(len)){
             lengthIndex.set(len,[]);
         }
-
-        lengthIndex.get(len).push(word);
+        lengthIndex.get(len).push(normalizedWord);
 
         const key = anagramKey(word);
 
         if(!anagramIndex.has(key)){
             anagramIndex.set(key,[]);
         }
-
         anagramIndex.get(key).push(word);
     }
 }
 
 function showResults(container,results){
-
     container.innerHTML="";
 
     if(results.length===0){
@@ -143,17 +140,12 @@ function showResults(container,results){
         return;
     }
 
-    const fragment =
-        document.createDocumentFragment();
+    const fragment = document.createDocumentFragment();
 
     for(const word of results){
-
-        const div =
-            document.createElement("div");
-
+        const div = document.createElement("div");
         div.className="word";
         div.textContent=word;
-
         fragment.appendChild(div);
     }
 
@@ -161,121 +153,71 @@ function showResults(container,results){
 }
 
 function findAnagrams(text){
-
-    text=text.trim();
-
+    text = text.trim();
     if(!text) return [];
 
-    const key =
-        anagramKey(text);
+    const key = anagramKey(text);
 
     return (anagramIndex.get(key)||[])
         .slice()
-        .sort((a,b)=>
-            a.localeCompare(b,'pl'));
+        .sort((a,b)=>a.localeCompare(b,'pl'));
 }
 
 function findPattern(pattern){
-
-    pattern=pattern.trim();
+    pattern = pattern.trim().toLowerCase();
 
     if(!pattern) return [];
 
-    const candidates =
-        lengthIndex.get(pattern.length) || [];
+    const candidates = lengthIndex.get(pattern.length) || [];
 
-    const regex =
-        new RegExp(
-            "^"+
-            pattern.replace(
-                /\./g,
-                "[a-ząćęłńóśźż]"
-            )+
-            "$",
-            "i"
-        );
+    const regex = new RegExp(
+        "^" +
+        pattern.replace(/\./g, "[a-ząćęłńóśźżA-ZĄĆĘŁŃÓŚŹŻ]") +
+        "$",
+        "i"
+    );
 
     return candidates.filter(
-        word=>regex.test(word)
+        word => regex.test(word)
     );
 }
 
 function setupSearch(){
+    const anagramInput = document.getElementById("anagramInput");
+    const patternInput = document.getElementById("patternInput");
+    const anagramResults = document.getElementById("anagramResults");
+    const patternResults = document.getElementById("patternResults");
 
-    const anagramInput =
-        document.getElementById(
-            "anagramInput"
-        );
+    anagramInput.addEventListener("input", ()=>{
+        showResults(anagramResults, findAnagrams(anagramInput.value));
+    });
 
-    const patternInput =
-        document.getElementById(
-            "patternInput"
-        );
-
-    const anagramResults =
-        document.getElementById(
-            "anagramResults"
-        );
-
-    const patternResults =
-        document.getElementById(
-            "patternResults"
-        );
-
-    anagramInput.addEventListener(
-        "input",
-        ()=>{
-
-            showResults(
-                anagramResults,
-                findAnagrams(
-                    anagramInput.value
-                )
-            );
-        }
-    );
-
-    patternInput.addEventListener(
-        "input",
-        ()=>{
-
-            showResults(
-                patternResults,
-                findPattern(
-                    patternInput.value
-                )
-            );
-        }
-    );
+    patternInput.addEventListener("input", ()=>{
+        showResults(patternResults, findPattern(patternInput.value));
+    });
 }
 
 async function init(){
+    try {
+        words = await loadDictionary();
+        buildIndexes();
 
-    words =
-        await loadDictionary();
+        document.getElementById("stats").textContent =
+            "Załadowano " + words.length.toLocaleString("pl-PL") + " słów.";
 
-    buildIndexes();
+        document.getElementById("loading").hidden = true;
+        document.getElementById("app").hidden = false;
 
-    document
-        .getElementById("stats")
-        .textContent =
-        "Załadowano "+
-        words.length.toLocaleString("pl-PL")+
-        " słów.";
-
-    document
-        .getElementById("loading")
-        .hidden=true;
-
-    document
-        .getElementById("app")
-        .hidden=false;
-
-    setupSearch();
+        setupSearch();
+    } catch (error) {
+        console.error(error);
+        document.getElementById("loading").textContent = 
+            "Błąd ładowania słownika! Szczegóły: " + error.message;
+    }
 }
 
 init();
-
+    
 </script>
 
 </body>
