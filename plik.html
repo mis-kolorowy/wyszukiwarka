@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Wikisłownik – Anagramy i wzorce</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 0 15px;
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+#loading {
+    font-size: 1.2em;
+    padding: 20px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+.section {
+    margin-top: 25px;
+}
+
+input {
+    width: 100%;
+    max-width: 500px;
+    padding: 10px;
+    font-size: 18px;
+}
+
+.results {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.word {
+    background: #eef3ff;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.stats {
+    color: #666;
+    margin-top: 10px;
+}
+</style>
+</head>
+<body>
+
+<h1>Wyszukiwarka Wikisłownika</h1>
+
+<div id="loading">
+    Czekaj, aktualizuję listę polskich haseł...
+</div>
+
+<div id="app" style="display:none;">
+
+    <div class="stats" id="stats"></div>
+
+    <div class="section">
+        <h2>Anagramy</h2>
+
+        <input
+            id="anagramInput"
+            placeholder="np. redukcja"
+            autocomplete="off">
+
+        <div id="anagramResults" class="results"></div>
+    </div>
+
+    <div class="section">
+        <h2>Brakujące litery</h2>
+
+        <input
+            id="patternInput"
+            placeholder="np. red.kcja"
+            autocomplete="off">
+
+        <div id="patternResults" class="results"></div>
+    </div>
+
+</div>
+
+<script>
+
+const PSID = 47503019; // <- WSTAW SWÓJ NUMER
+
+let words = [];
+let anagramIndex = new Map();
+
+function normalize(word) {
+    return word.toLowerCase();
+}
+
+function anagramKey(word) {
+    return [...normalize(word)]
+        .sort((a,b)=>a.localeCompare(b,'pl'))
+        .join('');
+}
+
+async function loadWords() {
+
+    const url =
+        `https://petscan.wmflabs.org/?psid=${PSID}&format=json`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error("Błąd pobierania danych");
+    }
+
+    const data = await response.json();
+
+    const collected = [];
+
+    extractTitles(data, collected);
+
+    return [...new Set(collected)];
+}
+
+function extractTitles(obj, output) {
+
+    if (!obj) return;
+
+    if (Array.isArray(obj)) {
+        for (const item of obj) {
+            extractTitles(item, output);
+        }
+        return;
+    }
+
+    if (typeof obj === "object") {
+
+        if (typeof obj.title === "string") {
+            output.push(obj.title);
+        }
+
+        for (const value of Object.values(obj)) {
+            extractTitles(value, output);
+        }
+    }
+}
+
+function buildIndexes() {
+
+    anagramIndex.clear();
+
+    for (const word of words) {
+
+        const key = anagramKey(word);
+
+        if (!anagramIndex.has(key)) {
+            anagramIndex.set(key, []);
+        }
+
+        anagramIndex.get(key).push(word);
+    }
+}
+
+function displayResults(container, results) {
+
+    container.innerHTML = "";
+
+    if (results.length === 0) {
+        container.textContent = "Brak wyników.";
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    results.forEach(word => {
+
+        const div = document.createElement("div");
+        div.className = "word";
+        div.textContent = word;
+
+        fragment.appendChild(div);
+    });
+
+    container.appendChild(fragment);
+}
+
+function searchAnagrams(text) {
+
+    text = normalize(text.trim());
+
+    if (!text) return [];
+
+    const key = anagramKey(text);
+
+    return (anagramIndex.get(key) || [])
+        .slice()
+        .sort((a,b)=>a.localeCompare(b,'pl'));
+}
+
+function searchPattern(pattern) {
+
+    pattern = pattern.trim().toLowerCase();
+
+    if (!pattern) return [];
+
+    const regex = new RegExp(
+        "^" +
+        pattern.replace(/\./g, "[a-ząćęłńóśźż]") +
+        "$",
+        "i"
+    );
+
+    return words.filter(word => regex.test(word));
+}
+
+function initializeSearch() {
+
+    const anagramInput =
+        document.getElementById("anagramInput");
+
+    const patternInput =
+        document.getElementById("patternInput");
+
+    const anagramResults =
+        document.getElementById("anagramResults");
+
+    const patternResults =
+        document.getElementById("patternResults");
+
+    anagramInput.addEventListener("input", () => {
+
+        const results =
+            searchAnagrams(anagramInput.value);
+
+        displayResults(anagramResults, results);
+    });
+
+    patternInput.addEventListener("input", () => {
+
+        const results =
+            searchPattern(patternInput.value)
+                .slice(0, 500);
+
+        displayResults(patternResults, results);
+    });
+}
+
+async function init() {
+
+    try {
+
+        words = await loadWords();
+
+        buildIndexes();
+
+        document.getElementById("stats").textContent =
+            `Załadowano ${words.length.toLocaleString("pl-PL")} haseł.`;
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("app").style.display = "block";
+
+        initializeSearch();
+
+    } catch (err) {
+
+        document.getElementById("loading").innerHTML =
+            "Nie udało się pobrać danych z PetScana.<br><br>" +
+            err.message;
+
+        console.error(err);
+    }
+}
+
+init();
+
+</script>
+
+</body>
+</html>
