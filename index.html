@@ -4,277 +4,274 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Wikisłownik – Anagramy i wzorce</title>
+<title>Anagramy i wzorce</title>
 
 <style>
-body {
-    font-family: Arial, sans-serif;
-    max-width: 1000px;
-    margin: 20px auto;
-    padding: 0 15px;
+body{
+    font-family:Arial,sans-serif;
+    max-width:1000px;
+    margin:20px auto;
+    padding:15px;
 }
 
-h1 {
-    margin-bottom: 10px;
+input{
+    width:100%;
+    max-width:500px;
+    padding:10px;
+    font-size:18px;
 }
 
-#loading {
-    font-size: 1.2em;
-    padding: 20px;
-    background: #f5f5f5;
-    border-radius: 8px;
+.section{
+    margin-top:30px;
 }
 
-.section {
-    margin-top: 25px;
+.results{
+    margin-top:15px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
 }
 
-input {
-    width: 100%;
-    max-width: 500px;
-    padding: 10px;
-    font-size: 18px;
+.word{
+    background:#eef3ff;
+    padding:5px 10px;
+    border-radius:5px;
 }
 
-.results {
-    margin-top: 15px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.word {
-    background: #eef3ff;
-    padding: 5px 10px;
-    border-radius: 5px;
-}
-
-.stats {
-    color: #666;
-    margin-top: 10px;
+#loading{
+    font-size:1.1em;
 }
 </style>
 </head>
 <body>
 
-<h1>Wyszukiwarka Wikisłownika</h1>
+<h1>Wyszukiwarka słów</h1>
 
 <div id="loading">
-    Czekaj, aktualizuję listę polskich haseł...
+Ładowanie słownika...
 </div>
 
-<div id="app" style="display:none;">
+<div id="app" hidden>
 
-    <div class="stats" id="stats"></div>
+<div id="stats"></div>
 
-    <div class="section">
-        <h2>Anagramy</h2>
+<div class="section">
+<h2>Anagramy</h2>
 
-        <input
-            id="anagramInput"
-            placeholder="np. redukcja"
-            autocomplete="off">
+<input
+id="anagramInput"
+placeholder="np. redukcja">
 
-        <div id="anagramResults" class="results"></div>
-    </div>
+<div
+id="anagramResults"
+class="results"></div>
+</div>
 
-    <div class="section">
-        <h2>Brakujące litery</h2>
+<div class="section">
+<h2>Brakujące litery</h2>
 
-        <input
-            id="patternInput"
-            placeholder="np. red.kcja"
-            autocomplete="off">
+<input
+id="patternInput"
+placeholder="np. red.kcja">
 
-        <div id="patternResults" class="results"></div>
-    </div>
+<div
+id="patternResults"
+class="results"></div>
+</div>
 
 </div>
 
 <script>
 
-const PSID = 47503019; // <- WSTAW SWÓJ NUMER
-
 let words = [];
-let anagramIndex = new Map();
 
-function normalize(word) {
+const anagramIndex = new Map();
+const lengthIndex = new Map();
+
+function normalize(word){
     return word.toLowerCase();
 }
 
-function anagramKey(word) {
+function anagramKey(word){
     return [...normalize(word)]
         .sort((a,b)=>a.localeCompare(b,'pl'))
         .join('');
 }
 
-async function loadWords() {
+async function loadDictionary(){
 
-    const url =
-        `https://petscan.wmflabs.org/?psid=${PSID}&format=json`;
+    const response =
+        await fetch("slowa.txt");
 
-    const response = await fetch(url);
+    const text =
+        await response.text();
 
-    if (!response.ok) {
-        throw new Error("Błąd pobierania danych");
-    }
-
-    const data = await response.json();
-
-    const collected = [];
-
-    extractTitles(data, collected);
-
-    return [...new Set(collected)];
+    return text
+        .split(/\r?\n/)
+        .map(w=>w.trim())
+        .filter(Boolean);
 }
 
-function extractTitles(obj, output) {
+function buildIndexes(){
 
-    if (!obj) return;
+    for(const word of words){
 
-    if (Array.isArray(obj)) {
-        for (const item of obj) {
-            extractTitles(item, output);
-        }
-        return;
-    }
+        const len = word.length;
 
-    if (typeof obj === "object") {
-
-        if (typeof obj.title === "string") {
-            output.push(obj.title);
+        if(!lengthIndex.has(len)){
+            lengthIndex.set(len,[]);
         }
 
-        for (const value of Object.values(obj)) {
-            extractTitles(value, output);
-        }
-    }
-}
-
-function buildIndexes() {
-
-    anagramIndex.clear();
-
-    for (const word of words) {
+        lengthIndex.get(len).push(word);
 
         const key = anagramKey(word);
 
-        if (!anagramIndex.has(key)) {
-            anagramIndex.set(key, []);
+        if(!anagramIndex.has(key)){
+            anagramIndex.set(key,[]);
         }
 
         anagramIndex.get(key).push(word);
     }
 }
 
-function displayResults(container, results) {
+function showResults(container,results){
 
-    container.innerHTML = "";
+    container.innerHTML="";
 
-    if (results.length === 0) {
-        container.textContent = "Brak wyników.";
+    if(results.length===0){
+        container.textContent="Brak wyników.";
         return;
     }
 
-    const fragment = document.createDocumentFragment();
+    const fragment =
+        document.createDocumentFragment();
 
-    results.forEach(word => {
+    for(const word of results){
 
-        const div = document.createElement("div");
-        div.className = "word";
-        div.textContent = word;
+        const div =
+            document.createElement("div");
+
+        div.className="word";
+        div.textContent=word;
 
         fragment.appendChild(div);
-    });
+    }
 
     container.appendChild(fragment);
 }
 
-function searchAnagrams(text) {
+function findAnagrams(text){
 
-    text = normalize(text.trim());
+    text=text.trim();
 
-    if (!text) return [];
+    if(!text) return [];
 
-    const key = anagramKey(text);
+    const key =
+        anagramKey(text);
 
-    return (anagramIndex.get(key) || [])
+    return (anagramIndex.get(key)||[])
         .slice()
-        .sort((a,b)=>a.localeCompare(b,'pl'));
+        .sort((a,b)=>
+            a.localeCompare(b,'pl'));
 }
 
-function searchPattern(pattern) {
+function findPattern(pattern){
 
-    pattern = pattern.trim().toLowerCase();
+    pattern=pattern.trim();
 
-    if (!pattern) return [];
+    if(!pattern) return [];
 
-    const regex = new RegExp(
-        "^" +
-        pattern.replace(/\./g, "[a-ząćęłńóśźż]") +
-        "$",
-        "i"
+    const candidates =
+        lengthIndex.get(pattern.length) || [];
+
+    const regex =
+        new RegExp(
+            "^"+
+            pattern.replace(
+                /\./g,
+                "[a-ząćęłńóśźż]"
+            )+
+            "$",
+            "i"
+        );
+
+    return candidates.filter(
+        word=>regex.test(word)
     );
-
-    return words.filter(word => regex.test(word));
 }
 
-function initializeSearch() {
+function setupSearch(){
 
     const anagramInput =
-        document.getElementById("anagramInput");
+        document.getElementById(
+            "anagramInput"
+        );
 
     const patternInput =
-        document.getElementById("patternInput");
+        document.getElementById(
+            "patternInput"
+        );
 
     const anagramResults =
-        document.getElementById("anagramResults");
+        document.getElementById(
+            "anagramResults"
+        );
 
     const patternResults =
-        document.getElementById("patternResults");
+        document.getElementById(
+            "patternResults"
+        );
 
-    anagramInput.addEventListener("input", () => {
+    anagramInput.addEventListener(
+        "input",
+        ()=>{
 
-        const results =
-            searchAnagrams(anagramInput.value);
+            showResults(
+                anagramResults,
+                findAnagrams(
+                    anagramInput.value
+                )
+            );
+        }
+    );
 
-        displayResults(anagramResults, results);
-    });
+    patternInput.addEventListener(
+        "input",
+        ()=>{
 
-    patternInput.addEventListener("input", () => {
-
-        const results =
-            searchPattern(patternInput.value)
-                .slice(0, 500);
-
-        displayResults(patternResults, results);
-    });
+            showResults(
+                patternResults,
+                findPattern(
+                    patternInput.value
+                )
+            );
+        }
+    );
 }
 
-async function init() {
+async function init(){
 
-    try {
+    words =
+        await loadDictionary();
 
-        words = await loadWords();
+    buildIndexes();
 
-        buildIndexes();
+    document
+        .getElementById("stats")
+        .textContent =
+        "Załadowano "+
+        words.length.toLocaleString("pl-PL")+
+        " słów.";
 
-        document.getElementById("stats").textContent =
-            `Załadowano ${words.length.toLocaleString("pl-PL")} haseł.`;
+    document
+        .getElementById("loading")
+        .hidden=true;
 
-        document.getElementById("loading").style.display = "none";
-        document.getElementById("app").style.display = "block";
+    document
+        .getElementById("app")
+        .hidden=false;
 
-        initializeSearch();
-
-    } catch (err) {
-
-        document.getElementById("loading").innerHTML =
-            "Nie udało się pobrać danych z PetScana.<br><br>" +
-            err.message;
-
-        console.error(err);
-    }
+    setupSearch();
 }
 
 init();
