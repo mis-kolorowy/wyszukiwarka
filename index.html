@@ -7,22 +7,82 @@
 <title>Anagramy i wzorce</title>
 
 <style>
-body{
-    font-family:Arial,sans-serif;
-    max-width:1000px;
-    margin:20px auto;
-    padding:15px;
+/* tryb jasny */
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --card-bg: #eef3ff;
+    --card-text: #1a365d;
+    --input-bg: #ffffff;
+    --input-border: #ccc;
+    --label-color: #555555;
+    --button-bg: #f0f0f0;
+    --button-border: #ccc;
 }
 
-input{
-    width:100%;
-    padding:10px;
-    font-size:18px;
+/* tryb ciemny */
+[data-theme="dark"] {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --card-bg: #1e293b;
+    --card-text: #93c5fd;
+    --input-bg: #1e1e1e;
+    --input-border: #444444;
+    --label-color: #aaa;
+    --button-bg: #2d2d2d;
+    --button-border: #444;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 15px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Przycisk zmiany motywu */
+.theme-toggle {
+    background: var(--button-bg);
+    color: var(--text-color);
+    border: 1px solid var(--button-border);
+    padding: 8px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+.theme-toggle:hover {
+    opacity: 0.8;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    font-size: 18px;
     box-sizing: border-box;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
 }
 
-.section{
-    margin-top:30px;
+.section {
+    margin-top: 30px;
 }
 
 .pattern-filters {
@@ -40,30 +100,38 @@ input{
     display: block;
     margin-bottom: 5px;
     font-size: 14px;
-    color: #555;
+    color: var(--label-color);
 }
 
-.results{
-    margin-top:15px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
+.results {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
-.word{
-    background:#eef3ff;
-    padding:5px 10px;
-    border-radius:5px;
+.word {
+    background: var(--card-bg);
+    color: var(--card-text);
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s, color 0.3s;
 }
 
-#loading{
-    font-size:1.1em;
+#loading {
+    font-size: 1.1em;
 }
 </style>
 </head>
 <body>
 
-<h1>Wyszukiwarka słów</h1>
+<div class="header-bar">
+    <h1>Wyszukiwarka słów</h1>
+    <button id="themeToggle" class="theme-toggle" aria-label="Zmień motyw">
+        <span id="themeIcon">🌙</span>
+        <span id="themeText">Tryb ciemny</span>
+    </button>
+</div>
 
 <div id="loading">
 Ładowanie słownika...
@@ -114,6 +182,41 @@ class="results"></div>
 
 <script>
 
+// --- Obsługa trybu ciemnego/jasnego (domyślnie ciemny) ---
+const themeToggleBtn = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const themeText = document.getElementById('themeText');
+
+function setTheme(theme) {
+    if (theme === 'light') {
+        document.documentElement.removeAttribute('data-theme');
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Tryb ciemny';
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Tryb jasny';
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+// Inicjalizacja motywu (Domyślnie 'ciemny', chyba że w localStorage zapisano 'jasny')
+const savedTheme = localStorage.getItem('theme');
+
+if (savedTheme === 'light') {
+    setTheme('light');
+} else {
+    setTheme('dark');
+}
+
+themeToggleBtn.addEventListener('click', () => {
+    const isDark = document.documentElement.hasAttribute('data-theme');
+    setTheme(isDark ? 'light' : 'dark');
+});
+
+
+// --- Logika wyszukiwarki ---
 let words = [];
 
 const anagramIndex = new Map();
@@ -260,7 +363,7 @@ async function init(){
 }
 
 init();
-    
+
 </script>
 
 </body>
