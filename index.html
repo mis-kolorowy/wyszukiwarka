@@ -16,13 +16,31 @@ body{
 
 input{
     width:100%;
-    max-width:500px;
     padding:10px;
     font-size:18px;
+    box-sizing: border-box;
 }
 
 .section{
     margin-top:30px;
+}
+
+.pattern-filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pattern-filters .field {
+    flex: 1;
+    min-width: 180px;
+}
+
+.pattern-filters label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #555;
 }
 
 .results{
@@ -70,9 +88,22 @@ class="results"></div>
 <div class="section">
 <h2>Brakujące litery</h2>
 
-<input
-id="patternInput"
-placeholder="np. red.kcja">
+<div class="pattern-filters">
+    <div class="field" style="flex: 1.5;">
+        <label for="patternInput">Wzorzec (użyj kropek):</label>
+        <input id="patternInput" placeholder="np. red.kcja">
+    </div>
+    
+    <div class="field">
+        <label for="includeInput">Muszą wystąpić litery:</label>
+        <input id="includeInput" placeholder="np. ka">
+    </div>
+    
+    <div class="field">
+        <label for="excludeInput">Nie mogą wystąpić:</label>
+        <input id="excludeInput" placeholder="np. xyz">
+    </div>
+</div>
 
 <div
 id="patternResults"
@@ -83,7 +114,7 @@ class="results"></div>
 
 <script>
 
-    let words = [];
+let words = [];
 
 const anagramIndex = new Map();
 const lengthIndex = new Map();
@@ -159,7 +190,7 @@ function findAnagrams(text){
         .sort((a,b) => a.localeCompare(b,'pl'));
 }
 
-function findPattern(pattern){
+function findPattern(pattern, includeLetters, excludeLetters){
     pattern = pattern.trim();
     if(!pattern) return [];
 
@@ -170,24 +201,49 @@ function findPattern(pattern){
         "ui" 
     );
 
-    return candidates.filter(
-        word => regex.test(word)
-    );
+    const required = [...normalize(includeLetters)];
+    const forbidden = [...normalize(excludeLetters)];
+
+    return candidates.filter(word => {
+        const lowerWord = word.toLowerCase();
+
+        if (!regex.test(word)) return false;
+
+        for (const char of required) {
+            if (!lowerWord.includes(char)) return false;
+        }
+
+        for (const char of forbidden) {
+            if (lowerWord.includes(char)) return false;
+        }
+
+        return true;
+    });
 }
 
 function setupSearch(){
     const anagramInput = document.getElementById("anagramInput");
     const patternInput = document.getElementById("patternInput");
+    const includeInput = document.getElementById("includeInput");
+    const excludeInput = document.getElementById("excludeInput");
+    
     const anagramResults = document.getElementById("anagramResults");
     const patternResults = document.getElementById("patternResults");
+
+    const updatePatternResults = () => {
+        showResults(
+            patternResults, 
+            findPattern(patternInput.value, includeInput.value, excludeInput.value)
+        );
+    };
 
     anagramInput.addEventListener("input", () => {
         showResults(anagramResults, findAnagrams(anagramInput.value));
     });
 
-    patternInput.addEventListener("input", () => {
-        showResults(patternResults, findPattern(patternInput.value));
-    });
+    patternInput.addEventListener("input", updatePatternResults);
+    includeInput.addEventListener("input", updatePatternResults);
+    excludeInput.addEventListener("input", updatePatternResults);
 }
 
 async function init(){
